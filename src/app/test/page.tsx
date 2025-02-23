@@ -15,239 +15,166 @@ import {
   PortableTextEditable,
   useEditor,
 } from '@portabletext/editor'
-import { EventListenerPlugin } from '@portabletext/editor/plugins'
+import {EventListenerPlugin} from '@portabletext/editor/plugins'
+import { renderAnnotation, renderBlock, renderDecorator, renderListItem, renderStyle, schemaDefinition } from '../utils'
+import { Toolbar } from '@/components/toolBar'
 
 
 
 
 
-function Toolbar() {
-  // useEditor provides access to the PTE
-  const editor = useEditor()
-
-  // Iterate over the schema (defined earlier), or manually create buttons.
-  const styleButtons = schemaDefinition.styles.map((style) => (
-    <button
-      key={style.name}
-      onClick={() => {
-        // Send style toggle event
-        editor.send({
-          type: 'style.toggle',
-          style: style.name,
-        })
-        editor.send({
-          type: 'focus',
-        })
-      }}
-    >
-      {style.name}
-    </button>
-  ))
-
-  const decoratorButtons = schemaDefinition.decorators.map((decorator) => (
-    <button
-      key={decorator.name}
-      onClick={() => {
-        // Send decorator toggle event
-        editor.send({
-          type: 'decorator.toggle',
-          decorator: decorator.name,
-        })
-        editor.send({
-          type: 'focus',
-        })
-      }}
-    >
-      {decorator.name}
-    </button>
-  ))
-  return (
-    <>
-      {styleButtons}
-      {decoratorButtons}
-    </>
-  )
-}
-
-const schemaDefinition = defineSchema({
-  // Decorators are simple marks that don't hold any data
-  decorators: [{ name: 'strong' }, { name: 'em' }, { name: 'underline' }],
-  // Styles apply to entire text blocks
-  // There's always a 'normal' style that can be considered the paragraph style
-  styles: [
-    { name: 'normal' },
-    { name: 'h1' },
-    { name: 'h2' },
-    { name: 'h3' },
-    { name: 'blockquote' },
-  ],
-
-  // The types below are left empty for this example.
-  // See the rendering guide to learn more about each type.
-
-  // Annotations are more complex marks that can hold data (for example, hyperlinks).
-  annotations: [
-    {
-      name: 'link',
-      type: 'object',
-      options: {
-        fields: [
-          {
-            name: 'href',
-            type: 'string',
-          },
-        ],
-      },
-    },
-  ],
-  // Lists apply to entire text blocks as well (for example, bullet, numbered).
-  lists: [
-    { name: 'bullet' },
-    { name: 'numbered' },
-    { name: 'check' },
-  ],
-  // Inline objects hold arbitrary data that can be inserted into the text (for example, custom emoji).
-  inlineObjects: [
-    {
-      name: 'emoji',
-      type: 'string',
-    },
-  ],
-  // Block objects hold arbitrary data that live side-by-side with text blocks (for example, images, code blocks, and tables).
-  blockObjects: [
-    {
-      name: 'image',
-      type: 'object',
-      options: {
-        fields: [
-          {
-            name: 'src',
-            type: 'string',
-          },
-          {
-            name: 'alt',
-            type: 'string',
-          },
-        ],
-      },
-    },
-  ],
-})
-
-const renderStyle: RenderStyleFunction = (props) => {
-  if (props.schemaType.value === 'h1') {
-    return <h1>{props.children}</h1>
-  }
-  if (props.schemaType.value === 'h2') {
-    return <h2>{props.children}</h2>
-  }
-  if (props.schemaType.value === 'h3') {
-    return <h3>{props.children}</h3>
-  }
-  if (props.schemaType.value === 'blockquote') {
-    return <blockquote>{props.children}</blockquote>
-  }
-  return <>{props.children}</>
-}
-
-
-
-
-const renderDecorator: RenderDecoratorFunction = (props) => {
-    if (props.value === 'strong') {
-      return <strong>{props.children}</strong>
-    }
-    if (props.value === 'em') {
-      return <em>{props.children}</em>
-    }
-    if (props.value === 'underline') {
-      return <u>{props.children}</u>
-    }
-    return <>{props.children}</>
-  }
-
-  
-  // Block objects
-  const renderBlock: RenderBlockFunction = (props) => {
-    if (props.schemaType.name === 'image' && isImage(props.value)) {
-      return (
-        <div
-          style={{
-            border: '1px dotted grey',
-            padding: '0.25em',
-            marginBlockEnd: '0.25em',
-          }}
-        >
-          IMG: {props.value.src}
-        </div>
-      )
-    }
-  
-    return <div style={{marginBlockEnd: '0.25em'}}>{props.children}</div>
-  }
-  
-  // Check the shape of an image and confirm it has a src.
-  function isImage(
-    props: PortableTextBlock,
-  ): props is PortableTextBlock & {src: string} {
-    return 'src' in props
-  }
-
-  
-  // Inline objects
-  const renderChild: RenderChildFunction = (props) => {
-    if (props.schemaType.name === 'stock-ticker' && isStockTicker(props.value)) {
-      return (
-        <span
-          style={{
-            border: '1px dotted grey',
-            padding: '0.15em',
-          }}
-        >
-          {props.value.symbol}
-        </span>
-      )
-    }
-  
-    return <>{props.children}</>
-  }
-  
-  // Check the shape of the object by confirming it has a symbol.
-  function isStockTicker(
-    props: PortableTextChild,
-  ): props is PortableTextChild & {symbol: string} {
-    return 'symbol' in props
-  }
 
 export default function TestPage() {
-  const [value, setValue] = useState<Array<PortableTextBlock> | undefined>(
-    undefined,
-  )
+  
+const [value, setValue] = useState<PortableTextBlock[]>([]);
+  // Helper function to render decorators (strong, em, code)
 
-  return (
-    <>
-      <EditorProvider
-        initialConfig={{
-          schemaDefinition,
-          initialValue: value,
-        }}
-      >
-        <EventListenerPlugin
-          on={(event) => {
-            if (event.type === 'mutation') {
-              setValue(event.value)
-            }
+
+  // Helper function to render decorators (strong, em, code)
+const renderChildDecorators = (child: PortableTextChild): React.ReactNode => {
+  if (child._type !== 'span' || !Array.isArray(child.marks)) {
+    return child.text as string;
+  }
+
+  let content: React.ReactNode = child.text as string;
+  child.marks.forEach((mark: string) => {
+    switch (mark) {
+      case 'strong':
+        content = <strong key={`${child._key}-strong`}>{content}</strong>;
+        break;
+      case 'em':
+        content = <em key={`${child._key}-em`}>{content}</em>;
+        break;
+      case 'code':
+        content = <code key={`${child._key}-code`} className="bg-slate-100 rounded px-1">{content}</code>;
+        break;
+    }
+  });
+  return content;
+};
+
+
+  
+
+  // Helper function to render blocks with proper styling
+  const renderPreviewBlock = (block: PortableTextBlock) => {
+    if (block._type !== 'block') return null;
+  
+    const children = (block.children as PortableTextChild[]).map((child, i) => (
+      <span key={child._key || i}>{renderChildDecorators(child)}</span>
+    ));
+
+    switch (block.style) {
+      case 'h1':
+        return (
+          <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl">
+            {children}
+          </h1>
+        );
+      case 'h2':
+        return (
+          <h2 className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight first:mt-0">
+            {children}
+          </h2>
+        );
+      case 'h3':
+        return (
+          <h3 className="scroll-m-20 text-2xl font-semibold tracking-tight">
+            {children}
+          </h3>
+        );
+      case 'blockquote':
+        return (
+          <blockquote className="mt-6 border-l-2 pl-6 italic">
+            {children}
+          </blockquote>
+        );
+      default:
+        if (block.listItem === 'bullet') {
+          return <li className="leading-7">{children}</li>;
+        }
+        if (block.listItem === 'number') {
+          return <li className="leading-7">{children}</li>;
+        }
+        return <p className="leading-7">{children}</p>;
+    }
+  };
+
+return (
+  <div className="flex bg-slate-100 p-8 justify-center min-h-screen w-screen">
+    <div className="grid grid-col-1 md:grid-cols-2 gap-8">
+      <div className="flex flex-col gap-4">
+        <EditorProvider
+          initialConfig={{
+            schemaDefinition,
+            initialValue: value,
           }}
-        />
-        <Toolbar />
-        <PortableTextEditable
-          style={{ border: '1px solid black', padding: '0.5em' }}
-          renderStyle={renderStyle}
-          renderDecorator={renderDecorator}
-          renderBlock={renderBlock}
-          renderListItem={(props) => <>{props.children}</>}
-        />
-      </EditorProvider>
-    </>
-  )
+        >
+          <EventListenerPlugin
+            on={(event) => {
+              if (event.type === "mutation" && event.value) {
+                setValue(event.value);
+              }
+            }}
+          />
+          <Toolbar />
+          {/* <ToolbarFloating /> */}
+
+          <PortableTextEditable
+            // className="focus:outline-none flex flex-col gap-y-4"
+            className="w-full rounded-md border border-input bg-transparent p-4 text-lg shadow-inner transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring bg-white flex flex-col gap-y-4"
+            renderAnnotation={renderAnnotation}
+            renderStyle={renderStyle}
+            renderDecorator={renderDecorator}
+            renderBlock={renderBlock}
+            renderListItem={renderListItem}
+          />
+        </EditorProvider>
+        </div>
+        <div className="prose prose-sm">
+          <h2>Preview</h2>
+          <div className="prose prose-slate max-w-none">
+            {value.map((block, blockIndex) => {
+              if (block._type === 'block') {
+                // Group list items
+                if (block.listItem) {
+                  const listItems = [];
+                  let i = blockIndex;
+                  while (i < value.length && value[i].listItem === block.listItem) {
+                    listItems.push(renderPreviewBlock(value[i]));
+                    i++;
+                  }
+                  
+                  if (block.listItem === 'bullet') {
+                    return (
+                      <ul key={block._key} className="my-6 ml-6 list-disc">
+                        {listItems}
+                      </ul>
+                    );
+                  } else {
+                    return (
+                      <ol key={block._key} className="my-6 ml-6 list-decimal">
+                        {listItems}
+                      </ol>
+                    );
+                  }
+                }
+                return (
+                  <div key={block._key}>
+                    {renderPreviewBlock(block)}
+                  </div>
+                );
+              }
+              return null;
+            })}
+          </div>
+
+          {/* <h2>Raw JSON</h2>
+          <pre className="overflow-x-auto rounded-md border bg-white p-4 text-sm">
+            <code>{JSON.stringify(value, null, 2)}</code>
+          </pre> */}
+        </div>
+      </div>
+    </div>
+  );
 }
